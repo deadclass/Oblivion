@@ -1,8 +1,8 @@
 # Design and movement direction
 
-The Quiet Relay is a provisional name for a single-room slice within Oblivion. A lone maintenance light explores a listening chamber that has stopped answering. Carry a resonant weight onto three drifting steps, place it in the high cradle, and restore a bridge to an eastern doorway. A lower-floor checkpoint provides recovery. Five hearts allow occasional fall mistakes; a harmless evasive dummy provides a separate training chase.
+The Quiet Relay is a provisional name for a single-room slice within Oblivion. A lone maintenance light explores a listening chamber that has stopped answering. The entrance is in the west; a pursuing guard protects a resonant weight at the far eastern end. Cross drifting platforms and architectural obstacles, defeat the guard, carry the weight back to the western high cradle, and restore a bridge and the eastern exit.
 
-The atmosphere comes from distance, silent architecture, dust, subdued teal masonry, and small warm lights. All visuals are original procedural geometry. The first room teaches its interaction clearly; later rooms could reveal older signals through incomplete architectural patterns while keeping their rules discoverable. Reference games inform atmosphere only.
+The atmosphere comes from distance, silent architecture, dust, subdued teal masonry, and small warm lights. All visuals are original procedural geometry. Rules remain visible through interaction labels, checkpoint lights, hearts, and the guard's orange attack warning. Reference games inform atmosphere only.
 
 ## Player movement defaults
 
@@ -27,32 +27,49 @@ Parameters live in `prototypes/quiet-relay/scripts/player.gd` as `@export` defau
 
 Earlier automated measurements recorded 106.61 px held-jump height and 33.82 px brief-jump height. These are historical simulation measurements; human assessment of feel remains outstanding.
 
-## Drifting platforms and cradle
+## Chamber and drifting platforms
 
-All three raised platforms use `AnimatableBody2D`, with smooth sinusoidal horizontal reversals and slight independent vertical bob. The two floor sections remain static. Motion is tunable in `scripts/moving_platform.gd`, with distinct instance assignments in `world.gd`.
+The room is 2304 pixels wide, twice the original width. The player starts at x=95; the guard starts at x=2090 beside the weight at x=2150. The cradle remains on the high western moving support. Two eastern upper galleries at y=292 form a second floor, reached by steps near the center and a compact zigzag route at the far eastern end. Floor blocks, gallery blocks, and suspended ledges complicate the route without adding new movement abilities.
 
-| Platform | Horizontal amplitude | Peak horizontal speed | Vertical amplitude |
+Ten supports use `AnimatableBody2D`, with smooth sinusoidal horizontal reversals and slight vertical bob. Main floors and architecture remain fixed. Motion is tunable in `scripts/moving_platform.gd`, with distinct assignments in `world.gd`.
+
+| Moving support | Horizontal amplitude | Peak horizontal speed | Vertical amplitude |
 | --- | --- | --- | --- |
-| Lower | 115 px | 42 px/s | 6 px |
-| Middle | 150 px | 58 px/s | 8 px |
-| Upper | 170 px | 76 px/s | 5 px |
+| Western lower | 115 px | 42 px/s | 6 px |
+| Western middle | 150 px | 58 px/s | 8 px |
+| Western cradle | 170 px | 76 px/s | 5 px |
+| Pit crossing | 12 px | 20 px/s | 3 px |
+| Eastern lower | 35 px | 28 px/s | 4 px |
+| Eastern middle | 35 px | 36 px/s | 5 px |
+| Eastern upper | 28 px | 44 px/s | 4 px |
+| Far eastern lower | 8 px | 25 px/s | 3 px |
+| Far eastern middle | 8 px | 33 px/s | 3 px |
+| Far eastern upper | 8 px | 40 px/s | 3 px |
 
-Amplitude is distance from the original center in either direction. Speeds vary through each cycle and are highest near the center. The listening cradle moves with the highest platform, and a placed weight stays with it. Grounded actors and dropped weight ride their supports; controlled jumps do not inherit a platform's departure speed. Backspace restores platform phases to their initial positions. R preserves the moving room state.
+Amplitude is distance from the original center in either direction. Speeds vary through each cycle and are highest near the center. The pit-crossing support is intentionally restrained so the central gap can be crossed before the bridge is restored. The listening cradle and placed weight follow the highest western support. Grounded actors and dropped weight ride supports; controlled jumps do not inherit a platform's departure speed. Backspace restores initial phases; R preserves room motion.
 
-## Training chase and baton
+The bounded camera follows player movement horizontally and vertically. The controls, health, status, and pause label use a fixed `CanvasLayer` so scrolling does not move them.
 
-The player runs at 255 px/s and the dummy at 247 px/s. The 8 px/s difference is about 3.2% of the dummy's speed, creating a small normal-running advantage. Carrying reduces player speed and prevents attacks, so place the weight before chasing.
+## Pursuing guard and two batons
 
-The dummy flees horizontally, predicts nearby moving-platform destinations, and samples ballistic paths before jumping. It avoids unreachable landings, platform undersides, and intervening collision surfaces. Short decision pauses, occasional floor hops, and bounded boundary retreats keep the chase varied. It stays west of the open pit. The dummy cannot attack or damage the player and is not an enemy.
+The player runs at 255 px/s and the guard at 247 px/s. The 8 px/s difference is about 3.2% of guard speed, retaining a small normal-running advantage. Carrying reduces player speed and prevents starting a player swing.
 
-Left mouse button swings the baton in the player's facing direction. One click deals at most one damage per target during a 140 ms swing, followed by a 300 ms cooldown. Reach is 66 px beyond the hand offset. Holding the button does not repeat attacks. The five-health dummy shows its remaining health, hit count, flash, and floating damage; at zero health it stops autonomous movement while remaining subject to gravity and platform support. T resets its health, hit count, spawn position, velocity, and planning state.
+The former dummy is now the chamber's single enemy, still implemented in `dummy.gd`. It waits at the eastern weight until the player comes within 480 px horizontally and 330 px vertically, then remains alerted and pursues. Planning predicts moving support positions, samples ballistic paths, and chooses reachable jumps around intervening geometry. The guard and player collide with room geometry rather than each other.
 
-## Puzzle, health, and recovery rules
+Left mouse button swings the player's baton in the facing direction. One click deals at most one damage per target during a 140 ms swing, with a 300 ms cooldown. Reach is 66 px beyond the hand offset. Holding does not repeat attacks.
 
-E picks up or drops the weight. When carrying near the moving high cradle, E places it and restores the relay. Loose weight falls against the same platform geometry and returns to its start if lost in the pit. The player and dummy pass through the weight and each other, keeping pickup and chase interactions predictable.
+The guard's independent weapon lives in `enemy_melee.gd`. A 300 ms orange windup precedes a 140 ms active strike, then 650 ms recovery. Its reach is 60 px, its vertical attack range is 38 px, and it removes one player heart per successful swing. Facing is locked through windup and strike; the guard stops advancing during that commitment. A physics ray blocks attacks through solid room geometry. Per-swing target tracking prevents repeated damage during the active window.
 
-A 180+ px apex-to-landing drop removes one heart once per qualifying landing. A pit fall removes one heart and returns to the checkpoint with remaining health. At zero hearts, recovery restores five hearts. First checkpoint activation and R restart heal fully. R/death recover carried weight and cancel attacks while retaining relay and dummy progress. Backspace clears the room, puzzle, checkpoint, completion, dummy, health, and motion phases. No save persists between launches.
+A combat hit grants 800 ms combat invulnerability and applies 165 px/s horizontal knockback with a brief upward impulse. Player steering resumes after the short knockback interval. A hit while carrying drops the weight. The guard has five health, with health/hit feedback and damage flashes. At zero health its movement and weapon stop; gravity and platform support still apply.
 
-Godot's built-in `CharacterBody2D`, `AnimatableBody2D`, `StaticBody2D`, collision shapes, and `move_and_slide()` cover actors, moving supports, falling weight, bridge, and gate. Scripted acceleration, jump forgiveness, planning, and hit rules supply the desired behavior. No extra physics library or art application is needed.
+## Puzzle, checkpoints, and resets
 
-See [health/melee rules](LOCAL_HEALTH_MELEE_REVISION.md), [moving-platform/chase revision](MOVING_CHASE_REVISION.md), and [setup/verification](SETUP.md). Audio, enemies, gamepad bindings, remapping, persistence, and a larger world remain outside this slice. Next decisions should come from playtest observations rather than adding systems preemptively.
+E picks up or drops the weight. When carrying near the moving western cradle, E places it only after guard defeat, restoring the bridge and opening the eastern gate. Attempting placement while the guard survives gives a sealed-cradle prompt and keeps the weight carried. E elsewhere still drops it. Loose weight falls against the same platform geometry and returns to its eastern start if lost in the pit.
+
+Five hearts allow fall and combat mistakes. A 180+ px apex-to-landing drop removes one heart once per qualifying landing. A pit fall removes one heart and returns to the checkpoint with remaining health. At zero hearts, recovery restores five hearts. First activation of each lower-floor checkpoint, at x=580 and x=1840, heals fully.
+
+R restarts and heals at the current checkpoint. R/death recover carried weight to the eastern start, cancel both weapons, and grant one second of combat grace while retaining relay and guard progress. Killing the guard remains effective across these recoveries. T restores the guard at its eastern spawn with five health, zero hits, and unalerted planning/weapon state, cancels the player's swing, and relocks an unsolved cradle. An already restored relay stays open. Backspace clears the room, puzzle, checkpoints, completion, guard, health, and platform phases. No save persists between launches.
+
+Godot's built-in `CharacterBody2D`, `AnimatableBody2D`, `StaticBody2D`, collision shapes, shape queries, rays, and `move_and_slide()` cover actors, moving supports, weight, bridge, gate, and melee collision. Scripts supply the desired acceleration, jump forgiveness, planning, and combat/puzzle rules. No extra physics library or art application is needed.
+
+See [guarded-chamber revision](GUARDED_CHAMBER_REVISION.md) and [setup/verification](SETUP.md). [Health/melee](LOCAL_HEALTH_MELEE_REVISION.md) and [moving/evasive-dummy](MOVING_CHASE_REVISION.md) notes document earlier iterations. Audio, gamepad bindings, remapping, persistence, and a larger world remain outside this slice. Next decisions should come from playtest observations rather than adding systems preemptively.

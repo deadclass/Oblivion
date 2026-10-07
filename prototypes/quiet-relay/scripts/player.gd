@@ -26,6 +26,7 @@ var test_control: bool = false
 var test_axis: float = 0.0
 var test_jump_pressed: bool = false
 var test_jump_held: bool = false
+var knockback_time: float = 0.0
 
 func _ready() -> void:
 	# Separate the player from the loose weight's world-only collision mask.
@@ -55,7 +56,10 @@ func _physics_process(delta: float) -> void:
 	var acceleration := ground_acceleration if is_on_floor() else air_acceleration
 	if is_zero_approx(axis) and is_on_floor():
 		acceleration = braking
-	velocity.x = move_toward(velocity.x, target, acceleration * delta)
+	if knockback_time>0:
+		knockback_time = maxf(0.0,knockback_time-delta)
+	else:
+		velocity.x = move_toward(velocity.x, target, acceleration * delta)
 	if axis != 0:
 		facing = signf(axis)
 	velocity.y = minf(velocity.y + (fall_gravity if velocity.y > 0 else gravity) * delta, terminal_speed)
@@ -90,6 +94,16 @@ func reset_at(point: Vector2) -> void:
 	jump_buffer = 0.0
 	fall_tracking = false
 	fall_apex_y = point.y
+	knockback_time = 0.0
+
+func apply_knockback(source_position: Vector2) -> void:
+	var direction := signf(position.x-source_position.x)
+	if is_zero_approx(direction):
+		direction = -facing
+	velocity.x = direction*165
+	velocity.y = -90
+	knockback_time = 0.16
+	damage_flash = 0.55
 
 func _draw() -> void:
 	draw_circle(Vector2(0, -6), 25, Color(0.7, 0.87, 0.7, 0.05))

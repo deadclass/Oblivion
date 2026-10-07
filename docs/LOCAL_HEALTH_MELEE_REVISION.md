@@ -1,4 +1,6 @@
-# Health/melee revision
+# Historical health/melee revision
+
+The current [guarded chamber](GUARDED_CHAMBER_REVISION.md) supersedes this iteration's harmless-target behavior. The enemy now pursues and deals damage; placement requires its defeat. Current results are in [VERIFICATION.md](VERIFICATION.md). The history below describes the earlier training system.
 
 This file retains its original filename for existing links. The health/melee system is part of the current collaboration source; earlier notes describing it as a permanently local or unpublished revision are superseded. Update publication follows the completed-and-tested workflow in [CONTRIBUTING.md](../CONTRIBUTING.md), with remote completion verified separately. The later [moving-platform/chase revision](MOVING_CHASE_REVISION.md) replaces the original stationary dummy and J/X attack controls.
 

@@ -90,12 +90,16 @@ func run() -> void:
 	player.test_jump_held = true
 	await tick(14)
 	check(player.jump_count == count+1 and player.velocity.y < 0,"Buffered jump fires on landing")
-	await place(Vector2(975,548))
+	await place(Vector2(2240,548))
 	player.test_axis = 1
 	await tick(40)
-	check(player.position.x <= 984.1,"Closed gate blocks player")
+	check(player.position.x <= 2254.1,"Closed eastern gate blocks player")
 	world.reset_room()
 	await tick(8)
+	# Isolate the original western movement/puzzle route. The expanded delivery
+	# integration starts at the actual eastern guarded weight separately.
+	world.stone = Vector2(185,556.95)
+	world.dummy.health = 0
 	await place(Vector2(185,548))
 	world.interact()
 	check(player.carrying,"Weight can be picked up")
@@ -121,8 +125,7 @@ func run() -> void:
 	await tick(3)
 	check(world.solved and not player.carrying,"Actual traversal places weight and restores relay")
 	check(not world.bridge.get_child(0).disabled and world.gate.get_child(0).disabled,"Relay creates solid bridge and removes gate collision")
-	player.test_axis = 1
-	await tick(240)
+	await traverse_floor_to(world.EXIT_X+15)
 	check(world.won,"Restored path leads to exit through actual movement")
 	world.respawn()
 	await tick(3)
@@ -168,18 +171,24 @@ func run() -> void:
 	pause_event.pressed = true
 	world._unhandled_input(pause_event)
 	check(paused,"Escape pause stops scene physics")
-	world.get_node("Pause")._unhandled_input(pause_event)
+	world.ui_canvas.get_node("Pause")._unhandled_input(pause_event)
 	check(not paused,"Escape resumes scene physics")
 	await test_health_and_melee()
 	await test_motion_and_chase()
+	await load("res://tests/combat_checks.gd").new().run(self)
+	await test_expanded_room()
 	print("RESULT: %d checks, %d failures" % [checks,failures])
 	quit(1 if failures else 0)
 
 func test_health_and_melee() -> void:
+	var guard_spawn: Vector2 = world.dummy.spawn_position
+	# Fixed training mark isolates hitbox regressions from guard navigation.
+	world.dummy.spawn_position = Vector2(240,548)
 	world.reset_room()
 	await tick(5)
 	check(world.health == 5,"Five hearts after full reset")
 	await place(Vector2(185,548))
+	world.stone = Vector2(185,556.95)
 	await tick(50)
 	check(absf(world.stone.y-557)<1,"Loose weight stays on floor when player overlaps it")
 	await place(Vector2(100,400))
@@ -281,6 +290,7 @@ func test_health_and_melee() -> void:
 	world.reset_room()
 	await tick(5)
 	check(world.health == 5 and world.dummy.health == 5 and world.dummy.hit_count == 0,"Full room reset restores hearts and dummy")
+	world.dummy.spawn_position = guard_spawn
 
 func mouse_button(pressed: bool) -> void:
 	var event := InputEventMouseButton.new()
@@ -325,7 +335,7 @@ func land_on_moving_platform(platform, timeout_frames: int = 3600) -> bool:
 		await tick(1)
 		air_remaining = maxf(0.0,air_remaining-1.0/120.0)
 	player.test_axis = 0
-	print("TRAVERSAL TIMEOUT player=",player.position," target=",platform.surface_rect()," floor=",player.is_on_floor()," phase=",platform.elapsed)
+	print("TRAVERSAL TIMEOUT player=",player.position," target=",platform.surface_rect()," floor=",player.is_on_floor())
 	return false
 
 func player_jump_plan(target, speed: float) -> Dictionary:
@@ -353,7 +363,7 @@ func player_jump_plan(target, speed: float) -> Dictionary:
 			point += motion/120.0
 			elapsed += 1.0/120.0
 			var body := Rect2(point-Vector2(11,16),Vector2(22,32))
-			for platform in world.moving_platforms:
+			for platform in world.navigation_surfaces():
 				var surface: Rect2 = platform.predicted_surface_rect(elapsed)
 				if body.intersects(surface):
 					if platform==target and motion.y>0 and old_feet<=surface.position.y+3:
@@ -373,10 +383,17 @@ func test_motion_and_chase() -> void:
 	var initial: Array[Vector2] = []
 	for platform in world.moving_platforms:
 		initial.append(platform.position)
-	await tick(180)
-	for i in range(3):
+	var minimum: Array[Vector2] = initial.duplicate()
+	var maximum: Array[Vector2] = initial.duplicate()
+	for frame in range(180):
+		await tick(1)
+		for i in range(world.moving_platforms.size()):
+			var point: Vector2 = world.moving_platforms[i].position
+			minimum[i] = Vector2(minf(minimum[i].x,point.x),minf(minimum[i].y,point.y))
+			maximum[i] = Vector2(maxf(maximum[i].x,point.x),maxf(maximum[i].y,point.y))
+	for i in range(world.moving_platforms.size()):
 		var platform = world.moving_platforms[i]
-		check(absf(platform.position.x-initial[i].x)>30 and absf(platform.position.y-initial[i].y)>1,"Raised platform %d moves horizontally and bobs" % (i+1))
+		check(maximum[i].x-minimum[i].x>platform.horizontal_amplitude*0.35 and maximum[i].y-minimum[i].y>1,"Raised platform %d moves horizontally and bobs" % (i+1))
 	check(world.moving_platforms[0].horizontal_speed != world.moving_platforms[1].horizontal_speed and world.moving_platforms[1].horizontal_speed != world.moving_platforms[2].horizontal_speed,"Each platform has a different speed")
 	for platform in world.moving_platforms:
 		platform.elapsed = 2.5
@@ -398,6 +415,8 @@ func test_motion_and_chase() -> void:
 		check(world.health==hearts,"Platform bob does not cause fall damage")
 	world.reset_room()
 	world.set_platform_motion(true,true)
+	world.stone = Vector2(185,556.95)
+	world.dummy.health = 0
 	var low = world.moving_platforms[0]
 	world.stone = Vector2(low.position.x,low.surface_rect().position.y-13)
 	await tick(40)
@@ -406,10 +425,12 @@ func test_motion_and_chase() -> void:
 	check(absf(world.stone.x-low.position.x-weight_offset)<5 and absf(world.stone.y+13-low.surface_rect().position.y)<3,"Loose weight rides a moving platform")
 	world.reset_room()
 	world.set_platform_motion(true,true)
+	world.stone = Vector2(185,556.95)
+	world.dummy.health = 0
 	await place(Vector2(185,548))
 	world.interact()
 	var traversed := true
-	for platform in world.moving_platforms:
+	for platform in world.moving_platforms.slice(0,3):
 		var landed := await land_on_moving_platform(platform)
 		check(landed,"Actual carrying jump lands on moving step")
 		if not landed:
@@ -428,21 +449,22 @@ func test_motion_and_chase() -> void:
 	if world.solved:
 		await tick(180)
 		check(world.stone.distance_to(world.socket_position())<1,"Placed weight follows moving cradle")
-		player.test_axis = 1
 		player.test_jump_held = false
-		await tick(400)
+		await traverse_floor_to(world.EXIT_X+15)
 		check(world.won,"Moving-puzzle completion still leads to exit")
 	for starting_phase in [7.0,14.0]:
 		world.reset_room()
 		world.set_platform_motion(true,true)
-		for platform in world.moving_platforms:
+		world.stone = Vector2(185,556.95)
+		world.dummy.health = 0
+		for platform in world.moving_platforms.slice(0,3):
 			platform.elapsed = starting_phase
 			platform.position = platform.base_rect.get_center()+platform.offset_at(starting_phase)
 		await tick(3)
 		await place(Vector2(185,548))
 		world.interact()
 		var phase_traversed := true
-		for platform in world.moving_platforms:
+		for platform in world.moving_platforms.slice(0,3):
 			if not await land_on_moving_platform(platform):
 				phase_traversed = false
 				break
@@ -450,6 +472,7 @@ func test_motion_and_chase() -> void:
 	world.reset_room()
 	world.set_platform_motion(false,true)
 	world.dummy.ai_enabled = false
+	world.dummy.position = Vector2(240,548)
 	await place(Vector2(185,548))
 	player.facing = 1
 	var attack_events: Array = InputMap.action_get_events("attack")
@@ -467,36 +490,167 @@ func test_motion_and_chase() -> void:
 	world.reset_room()
 	world.set_platform_motion(true,true)
 	world.dummy.ai_enabled = true
-	check(player.run_speed > world.dummy.run_speed and player.run_speed/world.dummy.run_speed<1.05,"Player is slightly faster than evasive dummy")
-	var jump_before: int = world.dummy.jump_count
-	var high_landings: int = 0
-	player.reset_at(Vector2(200,548))
-	for i in range(1800):
-		await tick(1)
-		if world.dummy.is_on_floor() and world.dummy.position.y < 500:
-			high_landings += 1
-	check(world.dummy.jump_count>jump_before,"Live dummy runs and jumps to evade")
-	check(high_landings>10,"Live dummy actually lands on elevated moving platforms")
+	check(player.run_speed > world.dummy.run_speed and player.run_speed/world.dummy.run_speed<1.05,"Player remains slightly faster than chasing guard")
 	world.reset_dummy()
 	await tick(3)
-	check(world.dummy.health==5 and world.dummy.hit_count==0 and world.dummy.position.x<250,"T reset restores dummy health and starting location")
-	world.dummy.ai_enabled = true
-	player.reset_at(Vector2(180,548))
-	player.test_jump_held = true
-	var caught := false
-	for i in range(3600):
-		var delta: Vector2 = world.dummy.position-player.position
-		player.test_axis = clampf(delta.x/12.0,-1,1)
-		if player.is_on_floor() and (delta.y < -22 or (world.dummy.velocity.y < -100 and absf(delta.x)<180)):
-			player.test_jump_pressed = true
-		if absf(delta.x)<90 and absf(delta.y)<40:
-			world.attack()
-		await tick(1)
-		if world.dummy.hit_count>0:
-			caught = true
-			break
-	check(caught,"Player pursuing live jumping dummy can catch and hit it")
+	check(world.dummy.health==5 and world.dummy.hit_count==0 and world.dummy.position.distance_to(world.ENEMY_START)<5,"T reset restores guard health and eastern starting location")
 	world.dummy.health = 0
 	player.test_axis = 0
 	await tick(180)
-	check(absf(world.dummy.velocity.x)<1,"Depleted dummy stops evading")
+	check(absf(world.dummy.velocity.x)<1,"Defeated guard stops pursuing")
+
+func traverse_floor_to(x: float, timeout_frames: int = 7200) -> bool:
+	player.test_jump_held = true
+	for i in range(timeout_frames):
+		var direction := signf(x-player.position.x)
+		if absf(x-player.position.x)<14:
+			player.test_axis = 0
+			await tick(2)
+			return true
+		player.test_axis = direction
+		if player.is_on_floor():
+			var feet: float = player.position.y+16
+			var obstruction: bool = player.is_on_wall()
+			for surface in world.navigation_surfaces():
+				var rect: Rect2 = surface.surface_rect()
+				var gap: float = rect.position.x-player.position.x if direction>0 else player.position.x-rect.end.x
+				if gap>5 and gap<55 and rect.position.y<feet-5 and rect.end.y>=feet-5 and rect.position.y>feet-110:
+					obstruction = true
+			if not world.solved and is_inf(world.floor_y_at(player.position.x+direction*45)):
+				obstruction = true
+			if obstruction:
+				player.test_jump_pressed = true
+		await tick(1)
+	player.test_axis = 0
+	print("GROUND TRAVERSAL TIMEOUT ",player.position," destination=",x)
+	return false
+
+func test_expanded_room() -> void:
+	world.reset_room()
+	world.dummy.ai_enabled = false
+	world.set_platform_motion(true,true)
+	check(world.ROOM_WIDTH==2304 and world.architecture.size()>=12,"Expanded chamber has upper floor and plentiful solid obstacles")
+	check(world.dummy.position.x>2000 and world.stone.x>2100 and player.position.x<150,"Enemy and weight start opposite player in eastern guarded area")
+	var reached_guard := await traverse_floor_to(2145)
+	check(reached_guard,"Actual movement crosses open pit and eastern obstacles to guarded weight")
+	if reached_guard:
+		player.facing = -1
+		# Keep the guard stationary for the five-hit combat/delivery integration;
+		# separate live tests verify navigation and enemy attacks.
+		world.dummy.position = Vector2(2090,548)
+		await tick(8)
+		for i in range(5):
+			world.attack()
+			await tick(42)
+		check(world.enemy_defeated and world.dummy.health==0,"Five physical swings defeat eastern guard and unlock cradle")
+		world.interact()
+		check(player.carrying,"Actual eastern weight can be picked up after encounter")
+		var delivered := await traverse_floor_to(185)
+		check(delivered and player.carrying,"Carry eastern weight back through obstacles and pit using actual movement")
+		if delivered:
+			var climbed := true
+			for platform in world.moving_platforms.slice(0,3):
+				if not await land_on_moving_platform(platform):
+					climbed = false
+					break
+			if climbed:
+				for i in range(180):
+					player.test_axis = clampf((world.socket_position().x-player.position.x)/12.0,-1,1)
+					await tick(1)
+					if player.position.distance_to(world.socket_position())<40:
+						break
+				player.test_axis = 0
+				world.interact()
+				await tick(3)
+			check(climbed and world.solved,"Eastern guard defeat and weight delivery complete western relay puzzle")
+			if world.solved:
+				check(await traverse_floor_to(world.EXIT_X+15) and world.won,"Full expanded encounter-delivery-exit route completes")
+	world.reset_room()
+	world.dummy.ai_enabled = false
+	await place(Vector2(1010,548))
+	var upper_route := true
+	for platform in world.moving_platforms.slice(4,7):
+		if not await land_on_moving_platform(platform):
+			upper_route = false
+			break
+	if upper_route:
+		upper_route = await land_on_moving_platform(world.fixed_surfaces[0])
+	check(upper_route and player.position.y<300,"Actual jumping route reaches second floor")
+	if upper_route:
+		check(await traverse_floor_to(1625,1000),"Upper floor obstacle can be crossed with actual movement")
+		check(await land_on_moving_platform(world.fixed_surfaces[1]),"Actual jump crosses gap between upper galleries")
+	await place(Vector2(2260,548))
+	await tick(3)
+	world.camera.force_update_scroll()
+	var center: Vector2 = world.camera.get_screen_center_position()
+	check(center.x<=1728.1 and center.x>1700,"Camera reaches eastern room while staying within bounds")
+	var screen_player: Vector2 = world.get_viewport().get_canvas_transform()*player.position
+	check(screen_player.y-16>160 and screen_player.y+22<628,"Camera keeps ground-level character fully visible below the fixed HUD")
+	check(world.hud.get_parent()==world.ui_canvas and world.notice.get_parent()==world.ui_canvas,"Controls, health and notices use fixed screen canvas")
+	world.reset_room()
+	world.dummy.ai_enabled = true
+	world.dummy.alerted = true
+	world.dummy.position = Vector2(1090,548)
+	world.combat_invulnerability = 100
+	await place(Vector2(1490,270))
+	var upper_chase := false
+	for i in range(3600):
+		await tick(1)
+		if world.dummy.is_on_floor() and world.dummy.position.y<300 and world.dummy.position.x>1430:
+			upper_chase = true
+			break
+	if not upper_chase:
+		print("MIDDLE GALLERY GUARD TIMEOUT ",world.dummy.position)
+	check(upper_chase and world.dummy.jump_count>0,"Live chasing guard navigates moving steps onto second floor")
+	for starting_phase in [0.0,7.0,14.0]:
+		world.reset_room()
+		world.set_platform_motion(true,true)
+		for platform in world.moving_platforms:
+			platform.elapsed = starting_phase
+			platform.position = platform.base_rect.get_center()+platform.offset_at(starting_phase)
+		world.dummy.ai_enabled = true
+		world.dummy.alerted = true
+		world.combat_invulnerability = 100
+		await place(Vector2(1930,276))
+		var far_upper_chase := false
+		for i in range(7200):
+			await tick(1)
+			if world.dummy.position.y<300 and absf(world.dummy.position.x-player.position.x)<70 and world.dummy.weapon.attack_count>0:
+				far_upper_chase = true
+				break
+		if not far_upper_chase:
+			print("FAR GALLERY GUARD TIMEOUT phase ",starting_phase," ",world.dummy.position)
+		check(far_upper_chase,"Eastern guard reaches and attacks beyond far upper-gallery blocker at phase %.0f s" % starting_phase)
+	world.reset_room()
+	world.dummy.ai_enabled = true
+	world.dummy.alerted = true
+	world.dummy.position = Vector2(1060,548)
+	await place(Vector2(690,548))
+	var crossed := false
+	for i in range(2400):
+		await tick(1)
+		if world.dummy.position.x<830:
+			crossed = true
+			break
+	check(crossed,"Live chasing guard crosses unsolved pit via reachable supports")
+	world.reset_room()
+	world.dummy.ai_enabled = true
+	await place(Vector2(2150,548))
+	world.combat_invulnerability = 0
+	for i in range(1200):
+		var delta: Vector2 = world.dummy.position-player.position
+		player.test_axis = clampf(delta.x/18.0,-1,1) if absf(delta.x)>42 else 0.0
+		if absf(delta.x)>1:
+			player.facing = signf(delta.x)
+		if i%42==0:
+			mouse_button(true)
+		elif i%42==1:
+			mouse_button(false)
+		await tick(1)
+		if world.dummy.health==0:
+			break
+	mouse_button(false)
+	await tick(2)
+	check(world.enemy_defeated and world.dummy.health==0 and world.health>0 and world.deaths==0,"Real mouse-click duel defeats live armed guard without player death")
+	check(world.dummy.weapon.hit_count>0,"Live armed encounter includes actual enemy damage while player fights")
+	player.test_axis = 0

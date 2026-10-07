@@ -41,6 +41,9 @@ func _physics_process(delta: float) -> void:
 			var target: Node = result.collider
 			var id := target.get_instance_id()
 			if not hit_targets.has(id) and target.has_method("receive_hit"):
+				var ray := PhysicsRayQueryParameters2D.create(global_position+Vector2(0,-5),target.global_position+Vector2(0,-5),1)
+				if not get_world_2d().direct_space_state.intersect_ray(ray).is_empty():
+					continue
 				hit_targets[id] = true
 				if target.receive_hit(damage):
 					struck.emit(target)

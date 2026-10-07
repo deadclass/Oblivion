@@ -1,4 +1,6 @@
-# Moving-platform and training-chase revision
+# Historical moving-platform and training-chase revision
+
+This records the earlier three-platform/evasive-target iteration. The current [guarded chamber](GUARDED_CHAMBER_REVISION.md) replaces fleeing with armed pursuit, moves the weight and guard east, expands the room, and requires defeating the guard before placement. Current measured results are in [VERIFICATION.md](VERIFICATION.md).
 
 Revision requested October 6, 2026 (America/Chicago). The room's three raised platforms now drift horizontally at different speeds and bob slightly vertically. The training dummy runs away and jumps between reachable supports, while the player keeps a small speed advantage. The attack control is the left mouse button. The Quiet Relay remains a provisional prototype name within Oblivion.
 

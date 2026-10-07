@@ -12,7 +12,7 @@ godot --path prototypes/quiet-relay
 
 On Windows, you may use the full path to your existing Godot console executable. Do not commit that private path to shared configuration. The portable helpers accept an engine path argument.
 
-Controls: A/D or arrows move; Space/W/Up jumps with hold-to-height; E carries/drops/places; left mouse button attacks; T resets the dummy; R restarts/heals at the checkpoint; Backspace resets the whole room and platform phases; Esc pauses/resumes. The dummy is a harmless fleeing target, and the cradle follows the highest moving platform.
+Controls: A/D or arrows move; Space/W/Up jumps with hold-to-height; E carries/drops/places; left mouse button attacks; T resets the guard; R restarts/heals at the checkpoint; Backspace resets the whole room and platform phases; Esc pauses/resumes. The guard and weight begin in the far east. Defeat the guard before placing the weight at the moving high cradle in the west.
 
 ## Automated checks
 
@@ -21,7 +21,7 @@ godot --headless --path prototypes/quiet-relay --fixed-fps 120 --script res://te
 godot --headless --path prototypes/quiet-relay --quit-after 120
 ```
 
-Or use `scripts/Verify.ps1 -Godot <your-existing-godot-executable>` in PowerShell. The helper checks exit codes and creates only ignored local `.artifacts` logs. The real-physics harness covers movement forgiveness and collisions, puzzle/recovery, health and per-swing hits, mouse mapping, moving-platform transport, and the dummy's chase/jumps/reset. Focused tests can freeze platform motion and disable dummy AI; active integration checks exercise the moving room separately.
+Or use `scripts/Verify.ps1 -Godot <your-existing-godot-executable>` in PowerShell. The helper checks exit codes and creates only ignored local `.artifacts` logs. The real-physics harness covers movement forgiveness and collisions, puzzle/recovery, player health and per-swing hits, mouse mapping, moving-support transport, and guard behavior. Focused checks can freeze platform motion and disable guard AI; active integration checks exercise motion and pursuit separately. New combat/expanded-room checks must validate attack timing, damage safety, obstacles, and the guard-defeat prerequisite.
 
 Before publishing a completed update, run the source from a clean folder as well as the working project. Copy only source, original assets, tests, and required configuration; exclude caches, builds, logs, local profiles, engine binaries, templates, and credentials. A passing historical baseline is not sufficient evidence for changed gameplay.
 
@@ -43,13 +43,13 @@ Create an output folder and run the graphical engine with:
 godot --path prototypes/quiet-relay -- --capture --capture-dir=.artifacts
 ```
 
-Prefer an absolute capture directory to make the destination unambiguous. `--capture` saves staged game-state PNGs and exits automatically. Inspect controls, hearts/hit feedback, platform/dummy states, and cradle alignment. This verifies render layout and state visibility; it does not test physical keyboard/mouse input. Do not commit local logs or generated evidence by default.
+Prefer an absolute capture directory to make the destination unambiguous. `--capture` saves staged game-state PNGs and exits automatically. Inspect readable controls/hearts, camera/HUD placement, the eastern guarded weight, upper-gallery obstacles, orange attack warning, health feedback, and the unlocked cradle/restored relay. This verifies render layout and state visibility; it does not test physical keyboard/mouse input. Do not commit local logs or generated evidence by default.
 
 ## Results and limits
 
-`docs/VERIFICATION.md` records the current moving-platform/chase revision: canonical and portable collaboration source both passed **83 checks, 0 failures**, plus 120-frame source smoke runs. The canonical Windows release exported, rendered five captured frames, and passed a 120-frame exported headless smoke. Initial, solved, and airborne-dummy frames were inspected. The earlier 26-check baseline and 55-check health/melee suite are historical. Record current engine, source, export, render, and remaining-issue evidence for each completed update.
+[VERIFICATION.md](VERIFICATION.md) records the current update's engine, source, export, render, and remaining-issue evidence. See [guarded-chamber revision](GUARDED_CHAMBER_REVISION.md) for the current behavior. The prior 83-check moving/evasive-dummy suite, 55-check health/melee suite, and 26-check original baseline are historical. Do not infer that a new revision passes from those earlier totals, and confirm current export/publication results before reporting success.
 
-No human playtest or native input test has been recorded. A tester should judge responsiveness, whether the small speed advantage makes pursuit fair, moving-platform timing, carrying speed, controls, puzzle clues, and resets. Automated InputMap events exercise engine behavior rather than hardware/focus. Some sandboxed environments report a root-certificate-store warning; the offline game does not use networking.
+No human playtest or native input test has been recorded. A tester should judge responsiveness, whether the small speed advantage makes pursuit fair, whether the orange attack warning allows an understandable dodge, obstacle/gallery routes, carrying speed, puzzle clues, and reset safety. Automated InputMap events exercise engine behavior rather than hardware/focus. Some sandboxed environments report a root-certificate-store warning; the offline game does not use networking.
 
 ## Collaboration sync
 
