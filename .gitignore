@@ -1,0 +1,27 @@
+# Godot-generated state and local runtime/export artifacts
+**/.godot/
+**/.artifacts/
+**/build/
+**/evidence/
+**/local-profile/
+**/editor_data/
+**/tools/
+*.log
+*.tmp
+*.pck
+*.exe
+*.dll
+*.zip
+*.import
+
+# Credentials and machine-specific configuration
+.env
+.env.*
+!.env.example
+**/.aws/
+**/.codex/
+**/.agents/
+*.pem
+*.key
+.DS_Store
+Thumbs.db
