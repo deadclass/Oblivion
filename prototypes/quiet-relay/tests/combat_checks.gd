@@ -23,6 +23,7 @@ func run(harness) -> void:
 	player.test_control = true
 	await _guard_awareness()
 	await _locked_cradle()
+	await _cradle_boundary_precision()
 	await _strike_timing()
 	await _dodge_and_walls()
 	await _invulnerability_and_death()
@@ -80,6 +81,60 @@ func _locked_cradle() -> void:
 	world.interact()
 	await h.tick(2)
 	h.check(not player.carrying and not world.solved and world.stone.distance_to(player.position)<12,"Combat: E away from the cradle still drops the weight for fighting")
+
+func _cradle_boundary_precision() -> void:
+	# Test exact coordinates without gravity or platform transport moving the
+	# player across the boundary between observing a prompt and pressing E.
+	var original_player_processing: bool = player.is_physics_processing()
+	player.set_physics_process(false)
+	enemy.set_physics_process(false)
+	enemy.ai_enabled = false
+	world.set_platform_motion(false,true)
+	var cases := [
+		{"label":"horizontal 64.9 px","offset":Vector2(64.9,0),"inside":true},
+		{"label":"horizontal 65.1 px","offset":Vector2(65.1,0),"inside":false},
+		{"label":"horizontal exactly 65 px","offset":Vector2(65,0),"inside":false},
+		{"label":"above center 64.9 px","offset":Vector2(0,-64.9),"inside":true},
+		{"label":"below center 65.1 px","offset":Vector2(0,65.1),"inside":false}
+	]
+	for locked in [true,false]:
+		for sample in cases:
+			world.reset_room()
+			await h.tick(2)
+			world.enemy_defeated = not locked
+			var point: Vector2 = world.socket_position()+Vector2(0,-5)+sample.offset
+			player.position = point
+			player.carrying = true
+			world.stone = point+Vector2(0,-34)
+			var prompt: String = world.cradle_prompt()
+			world.interact()
+			var agrees: bool
+			if sample.inside and locked:
+				agrees = prompt=="DEFEAT THE GUARD" and not world.solved and player.carrying and world.stone.distance_to(point+Vector2(0,-34))<0.01
+			elif sample.inside:
+				agrees = prompt=="E / PLACE" and world.solved and not player.carrying and world.stone.distance_to(world.socket_position())<0.01
+			else:
+				agrees = prompt.is_empty() and not world.solved and not player.carrying and world.stone.distance_to(point)<0.01
+			h.check(agrees,"Cradle boundary: %s at %s gives a matching prompt and E outcome" % ["locked" if locked else "unlocked",sample.label])
+	world.reset_room()
+	player.position = world.socket_position()+Vector2(0,-5)
+	player.carrying = false
+	h.check(world.cradle_prompt().is_empty(),"Cradle boundary: no interaction prompt appears without a carried weight")
+	player.carrying = true
+	enemy.health = 0
+	world.enemy_defeated = false
+	var immediate_prompt: String = world.cradle_prompt()
+	world.interact()
+	h.check(immediate_prompt=="E / PLACE" and world.solved and not player.carrying,"Cradle boundary: guard at zero health permits prompt and placement before the defeat latch updates")
+	player.carrying = true
+	world.interact()
+	h.check(world.cradle_prompt().is_empty() and world.solved and player.carrying,"Cradle boundary: restored cradle hides the prompt and ignores further placement")
+	world.reset_room()
+	player.test_axis = 0.0
+	player.test_jump_pressed = false
+	player.test_jump_held = false
+	player.set_physics_process(original_player_processing)
+	await h.tick(3)
 
 func _strike_timing() -> void:
 	await _arena()

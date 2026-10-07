@@ -142,6 +142,14 @@ func bind_attack_mouse() -> void:
 func socket_position() -> Vector2:
 	return moving_platforms[2].position + Vector2(31.5,-29.5)
 
+func cradle_in_reach() -> bool:
+	return player.position.distance_to(socket_position()+Vector2(0,-5)) < 65.0
+
+func cradle_prompt() -> String:
+	if solved or not player.carrying or not cradle_in_reach():
+		return ""
+	return "E / PLACE" if enemy_defeated or dummy.health<=0 else "DEFEAT THE GUARD"
+
 func set_platform_motion(enabled: bool, reset: bool = false) -> void:
 	for platform in moving_platforms:
 		platform.motion_enabled = enabled
@@ -240,7 +248,7 @@ func interact() -> void:
 	if solved:
 		return
 	if player.carrying:
-		if player.position.distance_to(socket_position() + Vector2(0,-5)) < 65:
+		if cradle_in_reach():
 			if not enemy_defeated and dummy.health>0:
 				set_feedback("Cradle sealed: defeat the guard first. The weight stays with you.")
 				return
@@ -392,8 +400,9 @@ func _draw() -> void:
 	draw_string(font,Vector2(1800,608),"CHECKPOINT",HORIZONTAL_ALIGNMENT_LEFT,-1,14,Color("b4bda8"))
 	draw_string(font,socket+Vector2(-69,-32),"LISTENING CRADLE",HORIZONTAL_ALIGNMENT_LEFT,-1,14,Color("b4bda8"))
 	draw_string(font,Vector2(535,608),"CHECKPOINT",HORIZONTAL_ALIGNMENT_LEFT,-1,14,Color("b4bda8"))
-	if player.carrying and player.position.distance_to(socket) < 70 and not solved:
-		draw_string(font,socket+Vector2(-72,-55),"E / PLACE" if enemy_defeated else "DEFEAT THE GUARD",HORIZONTAL_ALIGNMENT_LEFT,-1,16,Color("ffe1a0"))
+	var prompt := cradle_prompt()
+	if not prompt.is_empty():
+		draw_string(font,socket+Vector2(-72,-55),prompt,HORIZONTAL_ALIGNMENT_LEFT,-1,16,Color("ffe1a0"))
 
 func capture_frames() -> void:
 	var capture_dir := "res://evidence"

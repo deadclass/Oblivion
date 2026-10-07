@@ -10,6 +10,8 @@ The bounded camera follows the player horizontally and vertically. A fixed `Canv
 
 Pick up the weight with E and return it west after defeating the guard. E near a sealed cradle reports the prerequisite and retains the carried weight; E elsewhere drops it. A solved weight follows the moving cradle. A weight lost to the pit returns to its eastern start.
 
+The placement prompt and E now share the same strict reach rule: less than 65 px from the cradle center shifted 5 px upward. Exactly 65 px is outside range. This corrects the earlier mismatch where drawing used a 70 px radius around the unshifted cradle while interaction used the smaller shifted region. Prompt eligibility also recognizes zero guard health immediately, before the defeat flag updates, so `E / PLACE` agrees with the interaction; the living-guard warning, carried-weight retention, and solved/non-carrying prompt suppression remain consistent.
+
 ## Pursuit and melee
 
 The guard waits by the weight until the player approaches within 480 px horizontally and 330 px vertically. Once alerted, it chases and plans jumps across reachable moving/fixed supports and around obstacles. Normal player speed stays 255 px/s against guard speed 247 px/s, an 8 px/s advantage of about 3.2%. Carrying reduces player speed to 84% and prevents player attacks.
