@@ -1,11 +1,11 @@
-# Oblivion
+# Oblivion Movement Lab
 
-An original 2D platformer/puzzle game in development with Godot. The design aims for a mysterious, lonely world, discovery, and occasional danger. Reference games inform atmosphere only; characters, levels, names, mechanics, and signature assets should be developed independently.
+Workflow setup authorization (October 17, 2026): maintain Play Oblivion.lnk only after exact-build approval, and allow verified source pushes to the confirmed draft PR #1 branch. See [release workflow policy](docs/WORKFLOW_RELEASE.md). Older local-only statements below describe the previous gameplay revision; they do not override this specific authorization. Automated delivery/publication is blocked until the saved StarNet workflow and gate are verified.
 
-The working prototype is [The Quiet Relay](prototypes/quiet-relay/README.md), a small movement-and-puzzle slice with five hearts, drifting platforms, and an expanded chamber with upper galleries and obstacles. Its name is provisional. Travel from the western entrance to the guard and weight in the east. The guard chases and jumps after detecting you, then attacks with a visibly warned baton swing. Defeat it, carry the weight back to the western high cradle, and restore the route to the eastern exit. The player runs at 255 px/s and the guard at 247 px/s, preserving a small speed advantage.
+Free practice with three one-way platforms, one named knockback dummy on each platform and a fourth on the ground. There is no objective or enemy progression. The previous verified game remains preserved separately.
 
-Start with [setup](docs/SETUP.md), [design and movement tuning](docs/DESIGN.md), [guarded-chamber revision](docs/GUARDED_CHAMBER_REVISION.md), [verification](docs/VERIFICATION.md), and [collaboration guidance](CONTRIBUTING.md). The Godot project is `prototypes/quiet-relay/project.godot`.
+Current controls: A/Cross jumps; X/Square always uses the sword; B/Circle dodges; LB/L1 blocks; RB/R1 dashes; RT/R2 uses the selected ranged weapon; Y/Triangle cycles Bow, Boomerang, Bomb. Tap LT/L2 to cycle A, B, C, D, Free; hold it to aim while moving, with twice the previous assistance. Right stick aims independently of left-stick movement. Arrows collide with platforms and walls. Boomerang moves twice as fast, with three seconds of aimed flight and no distance cap. A selected target gives Bomb a validated ballistic path within its half-screen range. Manual aiming overrides selection.
 
-Completed, tested updates are maintained on `prototype/quiet-relay-collaboration` in [draft PR #1](https://github.com/deadclass/Oblivion/pull/1). Review and owner approval precede merging. This describes the authorized workflow; individual update publication is verified and reported after its remote write succeeds.
+[Current controls](docs/TARGET_AIM_REVISION.md) | [Setup](docs/SETUP.md) | [Verification](docs/VERIFICATION.md)
 
-Licensing is undecided. No license granting additional reuse rights has been selected.
+Everything remains local. No publication or ZIP update is part of this task. Keyboard/mouse and Xbox, PlayStation and Steam Input gamepad mappings remain available.

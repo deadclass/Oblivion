@@ -15,3 +15,4 @@ Left mouse button swings the signal baton in the facing direction. `melee.gd` ex
 The player uses a separate collision layer so the falling weight collides with world geometry without being pushed through the floor by an overlapping player. The dummy also uses a separate world-only body layer, allowing the player and weight to pass through it.
 
 The earlier health/melee revision passed 55 automated checks, source smoke, Windows export, graphical capture, and build smoke. Those are historical results. The current moving-platform/chase revision passed 83 checks in canonical and portable source; `VERIFICATION.md` records current source, Windows export, rendered inspection, and smoke evidence. No human playtest or native keyboard/mouse input test has been performed; InputMap injection and real physics queries provide automated coverage.
+

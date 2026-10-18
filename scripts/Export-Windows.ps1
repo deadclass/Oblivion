@@ -5,4 +5,8 @@ $artifactPath = Join-Path $projectPath '.artifacts'
 New-Item -ItemType Directory -Path $artifactPath -Force | Out-Null
 & $Godot --headless --path $projectPath --export-release 'Windows Desktop' (Join-Path $artifactPath 'QuietRelay.exe') --log-file (Join-Path $artifactPath 'export.log')
 if ($LASTEXITCODE -ne 0) { throw "Windows export failed: exit $LASTEXITCODE. Check matching existing export templates." }
+$exportOutput = Get-Content -LiteralPath (Join-Path $artifactPath 'export.log') -Raw
+if ($exportOutput -match 'SCRIPT ERROR:|Parse Error:') { throw 'Windows export contains a script error.' }
+if (-not (Test-Path -LiteralPath (Join-Path $artifactPath 'QuietRelay.exe'))) { throw 'Windows export did not create the executable.' }
 Write-Output (Join-Path $artifactPath 'QuietRelay.exe')
+

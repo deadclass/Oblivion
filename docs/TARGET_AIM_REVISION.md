@@ -1,0 +1,15 @@
+# Targeting, aiming and ranged movement
+
+Tap LT/L2 (Tab) to cycle Target A, B, C, D, then Free. A tap completes on release before 180ms. Holding for 180ms enters aiming without changing selection; using ranged while the button is down enters aiming immediately and consumes the tap. Holding aim temporarily overrides the stored target. Pause, reset and controller disconnect cancel pending gestures; real trigger/key release is required before a canceled gesture can start again.
+
+Left stick/D-pad or A/D move while aiming. Right stick points independently; when neutral, movement direction keys or the left stick also point. Jump, platform drop, dodge, dash, block and sword controls retain their existing behavior. Right stick performs heavy attacks when aim is released.
+
+Aim assistance keeps the previous 16-degree cone and 650px range, but angular blend increases from 35% to 70% and maximum correction from 6 to 12 degrees. Solid platforms and walls block assistance. Raw pointing stays separate from correction for directly controlled boomerang steering.
+
+- Bow: hold RT/R2 (U/E) to charge and release to shoot. Free aim chooses any direction; otherwise a selected target sets the initial straight heading, or Free uses facing. Arrows do not home. Walls, floor and all platform sides/undersides block them, including close muzzle placement and fast travel.
+- Boomerang: the character becomes the form. Outward speed is 660px/s and return speed 760px/s, twice the previous speeds. Plain outward flight remains up to 1.2s; holding aim allows steering for up to 3s, as confirmed by the user, without a distance cap. Release aim or reach the timer to retrace the safe route and restore the exact launch body/resources. Actual solid geometry still constrains travel. It can hit each dummy once outward and once returning for 5% per phase.
+- Bomb: while Free, the ordinary lob remains. With a target selected, the throw searches for a physically valid ballistic path that lands near it, choosing an efficient clear arc when available. Unreachable or out-of-range selections report the reason and do not silently throw elsewhere. Hold aim to override selection and preview the manual trajectory. The preview and live bomb share 120Hz gravity/platform/wall physics. Horizontal displacement cannot exceed half the visible world screen width captured at launch. Selecting a target does not make an already thrown bomb home. RT/R2 with Bomb selected detonates an existing bomb.
+
+Target A rests on the left platform, B on the upper platform, C on the right platform, and D on the ground. Knockback and automatic/manual return use these same home positions. Full reset returns to Bow and Free selection; player/target resets retain the selected target. The sword and all existing face/shoulder bindings remain unchanged.
+
+The prior AimFormRevision source/build and existing ZIP remain preserved. This task is local only. See VERIFICATION.md for automated physics, exported render inspection, and the remaining physical-controller/human feel limits.
