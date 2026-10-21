@@ -1,5 +1,7 @@
 # Current target and aim revision
 
+Current world layout: [SIX_ROOM_REVISION.md](SIX_ROOM_REVISION.md) supersedes the single-arena geometry below. Six connected rooms over three floors retain the existing movement/ability kit and safe Room 1 practice targets. Discovery, room camera and reset semantics are defined there. Gate/miniboss locations are nonblocking markings only.
+
 See TARGET_AIM_REVISION.md. Tap selection and held free aim coexist, with movement available during aim. Targeted ranged launch headings use the selected target, while manual aim takes priority. Arrow collision includes every platform surface. Bomb targeting finds a collision-checked ballistic path within the half-screen horizontal cap. Four inert targets occupy the three platform homes and a ground home. This supersedes the previous target/aim descriptions below.
 
 # Previous aiming and form revision

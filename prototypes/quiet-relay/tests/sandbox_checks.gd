@@ -116,7 +116,7 @@ func test_arena() -> void:
 				check(child.get_child(0).one_way_collision, "Practice platform permits upward passage")
 			else:
 				solid_bodies += 1
-	check(platforms == 3 and solid_bodies == 3, "Arena contains only three platforms, floor and two edge walls")
+	check(platforms == world.platform_rects.size() and solid_bodies == world.solid_rects.size(), "Six-room geometry matches all declared one-way platforms and solid surfaces")
 	var properties := names_of_properties(world)
 	check(not properties.has("stone") and not properties.has("solved") and not properties.has("gate") and not properties.has("enemy_defeated"), "Retired weight, relay, gate and enemy progression have no live state")
 	check(host.get_nodes_in_group("training_targets").size()==4, "Exactly four inert practice targets exist")
@@ -124,13 +124,13 @@ func test_arena() -> void:
 	player.test_axis = -1.0
 	await host.tick(60)
 	check(player.position.x>=10.8, "West edge wall blocks actual movement")
-	await place(Vector2(1580,542))
+	await place(Vector2(3180,542))
 	player.test_axis = 1.0
 	await host.tick(60)
-	check(player.position.x<=1589.2, "East edge wall blocks actual movement")
+	check(player.position.x<=3189.2, "East outer edge wall blocks actual movement")
 	world.camera.force_update_scroll()
 	var center: Vector2 = world.camera.get_screen_center_position()
-	check(center.x<=1024.1 and center.x>=1023.0, "Camera reaches eastern practice space within arena bounds")
+	check(center.x<=2624.1 and center.x>=2623.0, "Camera reaches eastern Room 2 within room bounds")
 	var screen: Vector2 = world.get_viewport().get_canvas_transform()*player.position
 	check(screen.y-18>216 and screen.y+18<648, "Floor-level character remains visible below fixed controls and status")
 	await fixture(Vector2(620,-160))

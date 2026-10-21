@@ -24,7 +24,8 @@ func _process(delta: float) -> bool:
 		print("FAIL: Script runtime error: ", error_monitor.descriptions[0])
 		print("RESULT: %d checks, %d failures; SCRIPT ERROR" % [checks, failures + 1])
 		quit(1)
-	if not completed and elapsed > 200.0:
+	# Walked seam launches add real simulated travel to the full suite.
+	if not completed and elapsed > 300.0:
 		push_error("FAIL: Movement lab suite timed out or aborted before completion")
 		print("RESULT: %d checks, %d failures; INCOMPLETE" % [checks, failures + 1])
 		quit(1)
@@ -44,6 +45,24 @@ func check(condition: bool, description: String) -> void:
 		push_error("FAIL: " + description)
 
 func run() -> void:
+	suite = load("res://tests/capture_controls_checks.gd").new()
+	await suite.run(self)
+	if not suite.completed:
+		check(false, "Capture controls suite did not complete")
+	if "--capture-controls-only" in OS.get_cmdline_user_args():
+		completed = true
+		print("CAPTURE RESULT: %d checks, %d failures; COMPLETE" % [checks, failures])
+		quit(1 if failures else 0)
+		return
+	suite = load("res://tests/room_checks.gd").new()
+	await suite.run(self)
+	if not suite.completed:
+		check(false, "Six-room suite did not complete")
+	if "--rooms-only" in OS.get_cmdline_user_args():
+		completed = true
+		print("ROOM RESULT: %d checks, %d failures; COMPLETE" % [checks, failures])
+		quit(1 if failures else 0)
+		return
 	suite = load("res://tests/sandbox_checks.gd").new()
 	await suite.run(self)
 	if not suite.completed:

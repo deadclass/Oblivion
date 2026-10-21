@@ -27,6 +27,7 @@ var route: Array[Vector2] = []
 var hit_targets: Dictionary = {}
 var return_hits: Dictionary = {}
 var saved_player: Dictionary = {}
+var launch_room: int = 1
 var _return_index: int = -1
 
 func begin(host, character, facing: float, use_aim: bool, heading: Vector2) -> bool:
@@ -35,6 +36,7 @@ func begin(host, character, facing: float, use_aim: bool, heading: Vector2) -> b
 	saved_player = player.begin_boomerang_form()
 	if saved_player.is_empty():
 		return false
+	launch_room = abilities.world.current_room
 	launch_origin = player.global_position
 	global_position = launch_origin
 	aimed = use_aim
@@ -175,8 +177,7 @@ func _finish(cancelled: bool) -> void:
 	if finished:
 		return
 	finished = true
-	if is_instance_valid(player):
-		player.end_boomerang_form(launch_origin, saved_player)
+	_restore_player()
 	if is_instance_valid(abilities):
 		abilities.boomerang_finished(self, cancelled)
 	queue_free()
@@ -184,7 +185,13 @@ func _finish(cancelled: bool) -> void:
 func _exit_tree() -> void:
 	# Direct removal is safe too; avoid leaving an invisible disabled body.
 	if not finished and is_instance_valid(player):
+		_restore_player()
+
+func _restore_player() -> void:
+	if is_instance_valid(player):
 		player.end_boomerang_form(launch_origin, saved_player)
+		if is_instance_valid(abilities) and is_instance_valid(abilities.world) and not abilities.world.is_queued_for_deletion():
+			abilities.world.restore_form_room(launch_room)
 
 func _draw() -> void:
 	if finished:

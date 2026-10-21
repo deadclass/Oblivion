@@ -8,7 +8,7 @@ func _draw() -> void:
 	if not is_instance_valid(world) or not is_instance_valid(world.player):
 		return
 	var font := ThemeDB.fallback_font
-	draw_rect(Rect2(22,117,1108,99),Color(0.025,0.044,0.063,0.92))
+	draw_rect(Rect2(22,117,900,99),Color(0.025,0.044,0.063,0.92))
 	var chosen = world.selected_target()
 	if world.aim.held and is_instance_valid(world.aim.assisted_target):
 		chosen = world.aim.assisted_target

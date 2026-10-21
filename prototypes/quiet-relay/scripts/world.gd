@@ -6,11 +6,18 @@ const TrainingDummy = preload("res://scripts/training_dummy.gd")
 const Abilities = preload("res://scripts/abilities.gd")
 const AimController = preload("res://scripts/aim_controller.gd")
 const StatusDisplay = preload("res://scripts/status_display.gd")
+const RoomLayout = preload("res://scripts/room_layout.gd")
+const Minimap = preload("res://scripts/minimap.gd")
 const START := Vector2(460, 542)
 const DUMMY_START := Vector2(1100, 538)
-var arena_width: float = 1600.0
+var arena_width: float = 3200.0
 var ground_y: float = 560.0
 var platform_rects: Array[Rect2] = [Rect2(320,432,230,18), Rect2(690,330,220,18), Rect2(1060,432,230,18)]
+var solid_rects: Array[Rect2] = []
+var rooms: Array = RoomLayout.definitions()
+var connections: Array = RoomLayout.LINKS
+var current_room: int = 1
+var discovered_rooms: Array[int] = [1]
 var player
 var dummy
 var targets: Array = []
@@ -43,9 +50,9 @@ func _ready() -> void:
 	controls = Controls.new()
 	controls.world = self
 	add_child(controls)
-	make_surface(Rect2(0, ground_y, arena_width, 100), false)
-	make_surface(Rect2(-24, -500, 24, 1300), false)
-	make_surface(Rect2(arena_width, -500, 24, 1300), false)
+	build_rooms()
+	for rect in solid_rects:
+		make_surface(rect, false)
 	for rect in platform_rects:
 		make_surface(rect, true)
 	player = Player.new()
@@ -81,7 +88,7 @@ func _ready() -> void:
 	camera.position = Vector2(0, -90)
 	camera.limit_left = 0
 	camera.limit_right = int(arena_width)
-	camera.limit_top = -520
+	camera.limit_top = -2320
 	camera.limit_bottom = 648
 	camera.position_smoothing_enabled = false
 	player.add_child(camera)
@@ -90,13 +97,26 @@ func _ready() -> void:
 	hud = Label.new()
 	hud.position = Vector2(28, 18)
 	hud.add_theme_font_size_override("font_size", 16)
+	var control_backdrop := ColorRect.new()
+	control_backdrop.position = Vector2(-6,-4)
+	control_backdrop.size = Vector2(900,102)
+	control_backdrop.color = Color(0.025,0.044,0.063,0.96)
+	control_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	control_backdrop.show_behind_parent = true
+	hud.add_child(control_backdrop)
 	ui_canvas.add_child(hud)
 	update_control_hud()
 	var status := StatusDisplay.new()
 	status.world = self
 	ui_canvas.add_child(status)
+	var minimap := Minimap.new()
+	minimap.world = self
+	ui_canvas.add_child(minimap)
+	update_room_camera()
 	if "--capture" in OS.get_cmdline_user_args():
 		capture_frames()
+	elif "--capture-rooms" in OS.get_cmdline_user_args():
+		capture_rooms()
 
 func make_surface(rect: Rect2, one_way: bool) -> StaticBody2D:
 	var surface := StaticBody2D.new()
@@ -135,11 +155,78 @@ func _physics_process(delta: float) -> void:
 		else:
 			update_target_input(delta)
 			process_combat_input()
-	if not abilities.boomerang_active() and (player.position.y > 810 or player.position.y < -550):
+	if not abilities.boomerang_active() and (player.position.y > 810 or player.position.y < -2350 or player.position.x < -80 or player.position.x > arena_width + 80):
 		respawn_count += 1
 		respawn()
 		set_feedback("Returned to practice. No fall damage or lives.")
+	update_room_state()
 	queue_redraw()
+
+func build_rooms() -> void:
+	solid_rects.assign([
+		Rect2(0,560,3200,100), Rect2(-24,-2400,24,3060), Rect2(3200,-2400,24,3060),
+		Rect2(0,-340,2720,40), Rect2(480,-1240,2720,40),
+	])
+	# The landings are one-way so both ascent and deliberate down+jump work.
+	platform_rects.append_array(RoomLayout.stairs(2720,560))
+	platform_rects.append(Rect2(2720,-340,480,18))
+	platform_rects.append_array(RoomLayout.stairs(80,-340))
+	platform_rects.append(Rect2(0,-1240,480,18))
+	platform_rects.append_array([
+		Rect2(1840,440,340,18), Rect2(2320,320,240,18),
+		Rect2(2000,-470,280,18), Rect2(2420,-570,220,18),
+		Rect2(720,-460,400,18), Rect2(1120,-600,240,18),
+		Rect2(620,-1360,300,18), Rect2(1020,-1460,240,18),
+		Rect2(1900,-1360,240,18), Rect2(2420,-1420,400,18),
+	])
+
+func room_at(point: Vector2) -> int:
+	var east := point.x >= 1600.0
+	if point.y < -1240.0:
+		return 6 if east else 5
+	if point.y < -340.0:
+		return 3 if east else 4
+	return 2 if east else 1
+
+func update_room_state() -> void:
+	var next := room_at(player.position)
+	if next != current_room:
+		# A small seam deadband prevents alternating cells while standing at an exit.
+		var old: Dictionary = rooms[current_room-1]
+		var candidate: Dictionary = rooms[next-1]
+		if old.cell.x != candidate.cell.x and absf(player.position.x-1600.0) < 18.0:
+			update_room_camera()
+			return
+		if old.cell.y != candidate.cell.y:
+			var seam: float = maxf(old.floor, candidate.floor) - 900.0
+			if absf(player.position.y-seam) < 8.0:
+				update_room_camera()
+				return
+		current_room = next
+		if not current_room in discovered_rooms:
+			discovered_rooms.append(current_room)
+		aim.invalidate_bomb_cache()
+	update_room_camera()
+
+func restore_form_room(launch_room: int) -> void:
+	# Restoration is not movement across a seam. Keep the saved logical origin,
+	# even when its physical launch point lies inside the ordinary deadband.
+	current_room = launch_room
+	aim.invalidate_bomb_cache()
+	update_room_camera()
+
+func update_room_camera() -> void:
+	var room: Dictionary = rooms[current_room-1]
+	camera.limit_left = int(room.cell.x*1600)
+	camera.limit_right = camera.limit_left + 1600
+	# The logical room may own a body within the seam band on either side.
+	# Offset past the clamp just enough to keep its full 22px width visible.
+	camera.offset.x = player.position.x-clampf(player.position.x,camera.limit_left+12,camera.limit_right-12) if absf(player.position.x-1600)<30 else 0.0
+	camera.limit_top = int(room.floor-1080)
+	camera.limit_bottom = int(room.floor+88)
+
+func visible_connections() -> Array:
+	return connections.filter(func(link): return link.x in discovered_rooms and link.y in discovered_rooms)
 
 func selected_target():
 	clean_targets()
@@ -270,6 +357,8 @@ func set_feedback(message: String) -> void:
 func respawn() -> void:
 	abilities.cancel_all()
 	player.reset_at(START)
+	current_room = 1
+	update_room_camera()
 	aim.invalidate_bomb_cache()
 	controls.release_gameplay()
 	set_feedback("Player reset. Dummy results retained.")
@@ -287,6 +376,7 @@ func reset_dummy() -> void:
 
 func reset_room() -> void:
 	respawn()
+	discovered_rooms.assign([1])
 	abilities.reset_loadout()
 	for target in targets:
 		if is_instance_valid(target):
@@ -305,6 +395,7 @@ func pause_game(reason: String = "PAUSED") -> void:
 	abilities.cancel_charge()
 	abilities.cancel_sword_dash()
 	abilities.cancel_boomerang()
+	update_room_state()
 	cancel_target_gesture()
 	player.cancel_transients()
 	cancel_pending_actions()
@@ -332,21 +423,33 @@ func pause_game(reason: String = "PAUSED") -> void:
 			item.queue_redraw()
 
 func _draw() -> void:
-	for i in range(12):
-		var x := 55 + i * 140
-		draw_rect(Rect2(x, 220, 18, 340), Color("11232d"))
-		draw_arc(Vector2(x+9, 272), 76, PI, TAU, 20, Color("19333d"), 2)
-	for i in range(60):
-		draw_circle(Vector2(fmod(i*97.0 + sin(time*0.15+i)*6, arena_width), 210+fmod(i*71.0+time*2, 325)), 1.2, Color(0.42,0.64,0.65,0.17))
-	draw_rect(Rect2(0, ground_y, arena_width, 100), Color("263b44"))
-	draw_line(Vector2(0, ground_y), Vector2(arena_width, ground_y), Color("809991"), 3)
-	for x in range(0, int(arena_width), 80):
-		draw_line(Vector2(x, ground_y+8), Vector2(x+16, ground_y+65), Color("1b2e38"), 2)
+	for room in rooms:
+		var origin := Vector2(room.cell.x*1600,room.floor)
+		for i in range(10):
+			var point: Vector2 = origin+Vector2(55+i*160,-340)
+			draw_rect(Rect2(point,Vector2(18,340)),room.color.darkened(0.88))
+			draw_arc(point+Vector2(9,52),76,PI,TAU,20,room.color.darkened(0.77),2)
+		var title_offset := Vector2(80,-270) if room.id==1 else Vector2(620,-270)
+		draw_string(ThemeDB.fallback_font,origin+title_offset,"%d / %s" % [room.id,room.title],HORIZONTAL_ALIGNMENT_LEFT,-1,25,room.color)
+	for rect in solid_rects:
+		draw_rect(rect,Color("263b44"))
+		draw_line(rect.position,Vector2(rect.end.x,rect.position.y),Color("809991"),3)
 	for rect in platform_rects:
 		draw_rect(rect, Color("304b56"))
 		draw_line(rect.position, Vector2(rect.end.x, rect.position.y), Color("a5c3af"), 3)
 		draw_line(rect.position+Vector2(20,10), Vector2(rect.end.x-20, rect.position.y+10), Color("1d333d"), 2)
 	draw_string(ThemeDB.fallback_font, Vector2(640, 605), "FOUR TARGETS / TAP TO SELECT, HOLD TO AIM", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color("92b0ac"))
+	for site in [Vector2(1730,560),Vector2(1400,-340)]:
+		draw_rect(Rect2(site+Vector2(-35,-120),Vector2(70,120)),Color(0.7,0.8,0.7,0.12),false,2)
+		draw_string(ThemeDB.fallback_font,site+Vector2(-110,-140),"FUTURE ABILITY GATE / OPEN",HORIZONTAL_ALIGNMENT_LEFT,-1,14,Color("b6c8aa"))
+	draw_rect(Rect2(1170,-1240,360,18),Color("c69b86"),false,3)
+	draw_string(ThemeDB.fallback_font,Vector2(1160,-1410),"MINIBOSS SITE / INACTIVE",HORIZONTAL_ALIGNMENT_LEFT,-1,18,Color("d5ae94"))
+	draw_string(ThemeDB.fallback_font,Vector2(1170,-1385),"Room 6 entry remains open",HORIZONTAL_ALIGNMENT_LEFT,-1,15,Color("b6c8aa"))
+	for site in [Vector2(2920,560),Vector2(280,-340)]:
+		for step in range(9):
+			var point: Vector2 = site+Vector2(0,-step*100-45)
+			draw_line(point+Vector2(-12,12),point+Vector2(0,0),Color("ffe1a0"),3)
+			draw_line(point,point+Vector2(12,12),Color("ffe1a0"),3)
 	var chosen = selected_target()
 	if is_instance_valid(chosen) and not aim.held:
 		draw_arc(chosen.position + Vector2(0,-5), 38, 0, TAU, 40, Color("e8cc7e"), 2.0)
@@ -369,6 +472,37 @@ func capture_pose(point: Vector2) -> void:
 	await get_tree().physics_frame
 	await get_tree().physics_frame
 	player.set_physics_process(false)
+	update_room_state()
+	camera.force_update_scroll()
+
+func capture_rooms() -> void:
+	controls.set_capture_family("keyboard")
+	var directory := "res://evidence"
+	for argument in OS.get_cmdline_user_args():
+		if argument.begins_with("--capture-dir="):
+			directory = argument.trim_prefix("--capture-dir=")
+	await get_tree().create_timer(0.3).timeout
+	set_physics_process(false)
+	player.test_control = true
+	await capture_kit(START)
+	await capture_image(directory,"room-01-safe-start.png")
+	for room in rooms.slice(1):
+		await capture_kit(Vector2(room.cell.x*1600+800,room.floor-18))
+		await capture_image(directory,"room-%02d-layout.png" % room.id)
+	await capture_kit(Vector2(2920,42))
+	await capture_image(directory,"room-east-stairwell.png")
+	await capture_kit(Vector2(280,-858))
+	await capture_image(directory,"room-west-stairwell.png")
+	await capture_kit(Vector2(1380,-1258))
+	await capture_image(directory,"room-miniboss-reservation.png")
+	respawn()
+	await capture_pose(START)
+	await capture_image(directory,"room-respawn-complete-map.png")
+	controls.set_capture_family("gamepad")
+	await capture_image(directory,"room-controller-complete-map.png")
+	pause_game()
+	await capture_image(directory,"room-pause-complete-map.png")
+	get_tree().quit()
 
 func capture_kit(point: Vector2, weapon: int = 0, selection: int = -1) -> void:
 	abilities.cancel_all()
@@ -381,6 +515,7 @@ func capture_kit(point: Vector2, weapon: int = 0, selection: int = -1) -> void:
 	aim.update_aim(false, Vector2.ZERO)
 
 func capture_frames() -> void:
+	controls.set_capture_family("keyboard")
 	var directory := "res://evidence"
 	for argument in OS.get_cmdline_user_args():
 		if argument.begins_with("--capture-dir="):
@@ -392,9 +527,9 @@ func capture_frames() -> void:
 	print("GRAPHICAL CONTROLLER HARDWARE: ", Input.get_connected_joypads())
 	set_feedback("Three platform targets and one ground target. Tap to select, hold to aim.")
 	await capture_image(directory, "01-four-targets-keyboard.png")
-	controls.use_controller(0, "Xbox Controller")
+	controls.set_capture_family("gamepad")
 	await capture_image(directory, "02-controls-xbox.png")
-	controls.use_controller(1, "Sony DualSense")
+	controls.set_capture_family("playstation")
 	await capture_image(directory, "03-controls-playstation.png")
 	cycle_target()
 	await capture_image(directory, "04-tap-target-a.png")

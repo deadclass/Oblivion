@@ -297,7 +297,7 @@ func test_form_collision_and_hits() -> void:
 	check(not form.returning and form.position.y<420, "Form may travel through the one-way practice platforms")
 	abilities.cancel_boomerang()
 	check(not player.boomerang_form and not abilities.boomerang_active(), "Explicit form cancellation restores the character without leaving an invisible body")
-	for edge in [Vector2(11.01,542),Vector2(1588.99,542)]:
+	for edge in [Vector2(11.01,542),Vector2(3188.99,542)]:
 		await aim_fixture(edge)
 		player.facing = -1.0 if edge.x<800 else 1.0
 		var launch: Vector2 = player.position
@@ -306,7 +306,7 @@ func test_form_collision_and_hits() -> void:
 		for frame in range(18):
 			await host.tick(1)
 			extreme_x = minf(extreme_x,player.position.x) if edge.x<800 else maxf(extreme_x,player.position.x)
-		check(extreme_x>=9.8 if edge.x<800 else extreme_x<=1590.2, "A form launched already adjacent to the arena wall cannot ignore initial overlap and cross the wall")
+		check(extreme_x>=9.8 if edge.x<800 else extreme_x<=3190.2, "A form launched already adjacent to the arena wall cannot ignore initial overlap and cross the wall")
 		await finish_form()
 		check(not player.boomerang_form and player.position.distance_to(launch)<0.2, "An outward edge launch safely restores its exact original body position")
 

@@ -4,6 +4,7 @@ const GAME_ACTIONS := ["left", "right", "up", "down", "jump", "jump_alt", "attac
 var world: Node2D
 var family: String = "keyboard"
 var active_device: int = -1
+var _capture_family: String = ""
 var resume_guard: int = 0
 var _ranged_sources: Dictionary = {}
 var _ranged_reconnect_neutral: Dictionary = {}
@@ -59,6 +60,8 @@ func _ready() -> void:
 	Input.joy_connection_changed.connect(on_connection_changed)
 
 func _input(event: InputEvent) -> void:
+	if not _capture_family.is_empty():
+		return
 	# Releasing logical actions on pause does not release the physical trigger.
 	# Keep actual event state so trigger jitter cannot rearm a canceled shot.
 	if event is InputEventJoypadMotion and event.axis == JOY_AXIS_TRIGGER_LEFT:
@@ -102,9 +105,19 @@ func _input(event: InputEvent) -> void:
 		world.update_control_hud()
 
 func use_controller(device: int, controller_name: String) -> void:
+	if not _capture_family.is_empty():
+		return
 	family = family_for_name(controller_name)
 	active_device = device
 	world.update_control_hud()
+
+func set_capture_family(value: String) -> void:
+	# Render fixtures pin prompts through awaited draws; live hot-swap is unchanged.
+	_capture_family = value
+	if not value.is_empty():
+		family = value
+		active_device = -1
+		world.update_control_hud()
 
 func direction() -> Vector2:
 	return Vector2(Input.get_axis("left", "right"), Input.get_axis("up", "down"))
@@ -168,6 +181,8 @@ func gameplay_ready() -> bool:
 	return resume_guard == 0
 
 func on_connection_changed(device: int, connected: bool) -> void:
+	if not _capture_family.is_empty():
+		return
 	if not connected:
 		if _target_sources.has("pad:%d" % device):
 			_target_reconnect_neutral[device] = true
